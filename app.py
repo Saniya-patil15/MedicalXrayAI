@@ -107,9 +107,12 @@ if uploaded_file:
                     analysis_mode
                 )
 
+                # ------------------------
+                # FORMATTED DISPLAY (UPDATED)
+                # ------------------------
+                formatted_summary = summary.replace("\n", "<br>")
+
                 if language in ["Marathi", "Hindi"]:
-                    # Use styled container for proper Devanagari rendering
-                    styled_summary = summary.replace("\n", "<br>")
                     st.markdown(
                         f"""<div style="
                             font-family: 'Noto Sans Devanagari', 'Mangal', sans-serif;
@@ -119,8 +122,20 @@ if uploaded_file:
                             background-color: #f0f2f6;
                             border-radius: 10px;
                             border-left: 4px solid #4CAF50;
-                        ">{styled_summary}</div>""",
+                            white-space: pre-wrap;
+                        ">{formatted_summary}</div>""",
                         unsafe_allow_html=True
                     )
                 else:
-                    st.info(summary)
+                    st.markdown(
+                        f"""<div style="
+                            font-size: 16px;
+                            line-height: 1.8;
+                            padding: 15px;
+                            background-color: #f9fafc;
+                            border-radius: 10px;
+                            border-left: 5px solid #2E86C1;
+                            white-space: pre-wrap;
+                        ">{formatted_summary}</div>""",
+                        unsafe_allow_html=True
+                    )
