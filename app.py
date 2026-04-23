@@ -5,70 +5,156 @@ from scripts.processor import analyze_chest
 from scripts.summarizer import generate_medical_summary
 from scripts.chat import chat_with_report
 
-st.set_page_config(page_title="Medical AI Dashboard", layout="wide")
+# ---------------------------------------------------
+# PAGE CONFIG
+# ---------------------------------------------------
+st.set_page_config(
+    page_title="Medical AI Dashboard",
+    layout="wide"
+)
 
-# ------------------------
-# SESSION STATE INIT
-# ------------------------
-if "analysis_done" not in st.session_state:
-    st.session_state.analysis_done = False
+# ---------------------------------------------------
+# SESSION STATE
+# ---------------------------------------------------
+defaults = {
+    "analysis_done": False,
+    "finding": None,
+    "confidence": None,
+    "summary": None,
+    "chat_history": [],
+    "chat_input": "",
+    "chat_open": False,
+    "last_uploaded_file": None
+}
 
-if "finding" not in st.session_state:
-    st.session_state.finding = None
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-if "confidence" not in st.session_state:
-    st.session_state.confidence = None
-
-if "summary" not in st.session_state:
-    st.session_state.summary = None
-
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-if "last_uploaded_file" not in st.session_state:
-    st.session_state.last_uploaded_file = None
-
-if "chat_input" not in st.session_state:
-    st.session_state.chat_input = ""
-
-# ------------------------
-# CHAT HANDLER
-# ------------------------
+# ---------------------------------------------------
+# CHAT FUNCTION
+# ---------------------------------------------------
 def handle_user_input():
-    user_question = st.session_state.chat_input.strip()
+    question = st.session_state.chat_input.strip()
 
-    if user_question:
+    if question:
         answer = chat_with_report(
             st.session_state.finding,
             st.session_state.confidence,
             st.session_state.summary,
-            user_question,
+            question
         )
 
-        # Save as pair: Question then Answer
-        st.session_state.chat_history.append(("You", user_question))
+        st.session_state.chat_history.append(("You", question))
         st.session_state.chat_history.append(("AI", answer))
-
         st.session_state.chat_input = ""
 
-# ------------------------
+# ---------------------------------------------------
+# CUSTOM CSS
+# ---------------------------------------------------
+st.markdown("""
+<style>
+.chat-toggle button {
+    position: fixed;
+    right: 25px;
+    bottom: 25px;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    font-size: 28px;
+    z-index: 99999;
+}
+
+.chat-panel {
+    position: fixed;
+    right: 25px;
+    bottom: 105px;
+    width: 430px;
+    height: 620px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0px 10px 35px rgba(0,0,0,0.25);
+    z-index: 9999;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}
+
+.chat-header {
+    background: linear-gradient(90deg,#ff7300,#ff9a3c);
+    color: white;
+    padding: 18px;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.chat-body {
+    height: 440px;
+    overflow-y: auto;
+    padding: 15px;
+    background: #f8f9fa;
+}
+
+.user-row {
+    text-align: right;
+    margin-bottom: 12px;
+}
+
+.ai-row {
+    text-align: left;
+    margin-bottom: 15px;
+}
+
+.user-bubble {
+    background: #0084ff;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 18px;
+    display: inline-block;
+    max-width: 80%;
+}
+
+.ai-bubble {
+    background: #e5e7eb;
+    color: black;
+    padding: 10px 14px;
+    border-radius: 18px;
+    display: inline-block;
+    max-width: 80%;
+}
+
+.chat-input-box {
+    padding: 12px;
+    background: white;
+    border-top: 1px solid #eee;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------
 # HEADER
-# ------------------------
+# ---------------------------------------------------
 st.title("🩺 AI Medical X-Ray Analysis System")
 st.markdown("Upload an X-ray to detect fractures or chest diseases using AI.")
 
-# ------------------------
+# ---------------------------------------------------
 # SIDEBAR
-# ------------------------
+# ---------------------------------------------------
 analysis_mode = st.sidebar.radio("Select X-Ray Type:", ("Bone", "Chest"))
-language = st.sidebar.selectbox("Report Language:", ("English", "Marathi", "Hindi"))
+language = st.sidebar.selectbox(
+    "Report Language:",
+    ("English", "Marathi", "Hindi")
+)
 
-# ------------------------
-# FILE UPLOAD
-# ------------------------
-uploaded_file = st.file_uploader("📤 Upload X-ray Image", type=["jpg", "jpeg", "png"])
+# ---------------------------------------------------
+# UPLOAD
+# ---------------------------------------------------
+uploaded_file = st.file_uploader(
+    "📤 Upload X-ray Image",
+    type=["jpg", "jpeg", "png"]
+)
 
-# RESET on new image
+# Reset when new image
 if uploaded_file is not None:
     if uploaded_file != st.session_state.last_uploaded_file:
         st.session_state.analysis_done = False
@@ -79,15 +165,12 @@ if uploaded_file is not None:
         st.session_state.chat_input = ""
         st.session_state.last_uploaded_file = uploaded_file
 
-# ------------------------
-# MAIN UI
-# ------------------------
+# ---------------------------------------------------
+# MAIN ANALYSIS UI
+# ---------------------------------------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
 
-    # ========================
-    # ROW 1: IMAGE + RESULT
-    # ========================
     col1, col2 = st.columns([1, 1])
 
     with col1:
@@ -101,8 +184,8 @@ if uploaded_file:
             temp_path = "temp_processing.jpg"
             image.save(temp_path)
 
-            with st.spinner("Analyzing X-ray... Please wait"):
-                if "Bone" in analysis_mode:
+            with st.spinner("Analyzing X-ray..."):
+                if analysis_mode == "Bone":
                     finding, confidence = analyze_bone_with_custom_model(
                         temp_path,
                         "models/bone_fracture_resnet.pth"
@@ -131,65 +214,90 @@ if uploaded_file:
 
             st.subheader("📊 Analysis Result")
 
-            if "Normal" in finding:
+            if "Normal" in str(finding):
                 st.success(f"🟢 {finding}")
             else:
                 st.error(f"🔴 {finding}")
 
-            st.metric("Confidence", f"{confidence * 100:.2f}%")
+            st.metric("Confidence", f"{confidence*100:.2f}%")
 
-    # ========================
-    # ROW 2: SUMMARY + CHAT
-    # ========================
-    if st.session_state.analysis_done:
+# ---------------------------------------------------
+# SUMMARY
+# ---------------------------------------------------
+if st.session_state.analysis_done:
+    st.markdown("---")
 
-        col3, col4 = st.columns([1, 1])
+    if language == "Marathi":
+        st.subheader("📝 वैद्यकीय सारांश")
+    elif language == "Hindi":
+        st.subheader("📝 चिकित्सा सारांश")
+    else:
+        st.subheader("📝 Medical Summary")
 
-        # -------- LEFT: SUMMARY --------
-        with col3:
-            if language == "Marathi":
-                st.subheader("📝 वैद्यकीय सारांश")
-            elif language == "Hindi":
-                st.subheader("📝 चिकित्सा सारांश")
-            else:
-                st.subheader("📝 Medical Summary")
+    summary = st.session_state.summary.replace("\n", "<br>")
 
-            summary = st.session_state.summary
-            formatted_summary = summary.replace("\n", "<br>")
+    st.markdown(
+        f"""
+        <div style="
+            padding:18px;
+            background:#f9fafc;
+            border-left:5px solid #2E86C1;
+            border-radius:12px;
+            font-size:16px;
+            line-height:1.8;">
+            {summary}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-            st.markdown(
-                f"""
-                <div style="
-                    font-size:16px;
-                    line-height:1.8;
-                    padding:15px;
-                    background-color:#f9fafc;
-                    border-radius:10px;
-                    border-left:5px solid #2E86C1;
-                ">
-                    {formatted_summary}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+# ---------------------------------------------------
+# FLOATING BUTTON
+# ---------------------------------------------------
+st.markdown('<div class="chat-toggle">', unsafe_allow_html=True)
+if st.button("💬"):
+    st.session_state.chat_open = not st.session_state.chat_open
+st.markdown('</div>', unsafe_allow_html=True)
 
-        # -------- RIGHT: CHAT --------
-        with col4:
-            st.subheader("💬 Ask Questions")
+# ---------------------------------------------------
+# LARGE CHAT POPUP
+# ---------------------------------------------------
+if st.session_state.chat_open and st.session_state.analysis_done:
 
-            st.text_input(
-                "Type your question...",
-                key="chat_input",
-                on_change=handle_user_input
-            )
+    chat_html = """
+    <div class="chat-panel">
+        <div class="chat-header">🤖 Medical AI Assistant</div>
+        <div class="chat-body">
+    """
 
-            # Show newest Q&A pair first
-            history = st.session_state.chat_history
+    history = st.session_state.chat_history
 
-            for i in range(len(history) - 2, -1, -2):
-                user_role, user_msg = history[i]
-                ai_role, ai_msg = history[i + 1]
+    for i in range(0, len(history), 2):
+        user_msg = history[i][1]
+        ai_msg = history[i + 1][1]
 
-                st.markdown(f"**🧑 You:** {user_msg}")
-                st.markdown(f"**🤖 AI:** {ai_msg}")
-                st.write("")
+        chat_html += f"""
+        <div class="user-row">
+            <span class="user-bubble">{user_msg}</span>
+        </div>
+
+        <div class="ai-row">
+            <span class="ai-bubble">{ai_msg}</span>
+        </div>
+        """
+
+    chat_html += "</div></div>"
+
+    st.markdown(chat_html, unsafe_allow_html=True)
+
+    # spacer so input appears in popup area visually
+    st.markdown("<br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([5, 4, 1])
+
+    with col2:
+        st.text_input(
+            "Type your question...",
+            key="chat_input",
+            on_change=handle_user_input
+        )
