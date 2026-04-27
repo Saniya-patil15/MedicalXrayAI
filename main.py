@@ -11,7 +11,7 @@ from scripts.chat import chat_with_report
 app = FastAPI()
 
 # ---------------------------------------------------
-# CORS (Allow React Frontend)
+# CORS
 # ---------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +36,7 @@ class ChatRequest(BaseModel):
     confidence: float
     summary: str
     question: str
+    language: str
 
 
 # ---------------------------------------------------
@@ -109,7 +110,8 @@ def chat_api(data: ChatRequest):
         data.finding,
         data.confidence,
         data.summary,
-        data.question
+        data.question,
+        data.language
     )
 
     return {

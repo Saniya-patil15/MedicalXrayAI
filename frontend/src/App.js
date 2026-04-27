@@ -49,7 +49,7 @@ function App() {
     setChatHistory([]);
 
     try {
-      // Analyze Image
+      // Analyze
       const response = await fetch(analyzeUrl, {
         method: "POST",
         body: formData,
@@ -58,7 +58,7 @@ function App() {
       const data = await response.json();
       setResult(data);
 
-      // Generate Summary
+      // Summary
       const summaryRes = await fetch(
         "http://127.0.0.1:8000/generate-summary",
         {
@@ -103,6 +103,7 @@ function App() {
           confidence: result.confidence,
           summary: summary,
           question: userQuestion,
+          language: language,
         }),
       });
 
@@ -128,7 +129,7 @@ function App() {
       <div className="card">
         <h2>Upload {mode} X-ray</h2>
 
-        {/* X-ray Type Selector */}
+        {/* X-ray Type */}
         <div style={{ marginBottom: "20px" }}>
           <label>
             <input
@@ -151,7 +152,7 @@ function App() {
           </label>
         </div>
 
-        {/* Language Selector */}
+        {/* Language */}
         <div style={{ marginBottom: "20px" }}>
           <select
             value={language}
@@ -190,7 +191,7 @@ function App() {
         <br />
         <br />
 
-        {/* Analyze Button */}
+        {/* Analyze */}
         <button onClick={handleAnalyze}>
           {loading ? "Analyzing..." : "Analyze"}
         </button>
