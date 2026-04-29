@@ -8,6 +8,32 @@ chat_llm = LocalLLM(model_name="qwen2.5:3b")
 translator_llm = LocalLLM(model_name="gemma2:2b")
 
 
+def translate_to_english(text, language):
+    """
+    Translate user's query into English for the LLM to understand perfectly.
+    """
+    if language == "English":
+        return text
+
+    try:
+        translated = GoogleTranslator(source='auto', target='en').translate(text)
+        if translated:
+            return translated.strip()
+    except Exception:
+        pass
+
+    # Fallback offline if needed, using the translator model
+    try:
+        system_prompt = f"You are a professional translator. Translate the following {language} text into simple English. Return only the translated text."
+        translated = translator_llm.chat(system_prompt, text)
+        if translated and "Error" not in translated:
+            return translated.strip()
+    except Exception:
+        pass
+
+    return text
+
+
 def translate_text(text, language):
     """
     Translate English text to Marathi/Hindi using proven summary logic
@@ -51,7 +77,14 @@ Return only translated text.
 
 
 def chat_with_report(finding, confidence, summary, question, language="English"):
-    question_lower = question.lower().strip()
+    # First, translate the user's question to English so the LLM understands it perfectly
+    question_in_english = translate_to_english(question, language)
+    
+    # We use the English question for all our keyword checks and the LLM
+    question_lower = question_in_english.lower().strip()
+    
+    # Also pass the English question to the fallback LLM instead of the native one
+    question = question_in_english
     confidence_percent = round(confidence * 100)
 
     # ----------------------------------------------------

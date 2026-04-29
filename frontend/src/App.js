@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import "./App.css";
 
 function App() {
@@ -15,6 +15,17 @@ function App() {
   const [question, setQuestion] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const chatEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  React.useEffect(() => {
+    if (chatOpen) {
+      scrollToBottom();
+    }
+  }, [chatHistory, chatOpen]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
@@ -22,6 +33,8 @@ function App() {
 
     if (selected) {
       setPreview(URL.createObjectURL(selected));
+    } else {
+      setPreview(null);
     }
 
     setResult(null);
@@ -31,7 +44,7 @@ function App() {
 
   const handleAnalyze = async () => {
     if (!file) {
-      alert("Please select image");
+      alert("Please select an image first.");
       return;
     }
 
@@ -77,9 +90,8 @@ function App() {
 
       const summaryData = await summaryRes.json();
       setSummary(summaryData.summary);
-
     } catch (error) {
-      alert("Backend error");
+      alert("Backend error or server is down.");
     }
 
     setLoading(false);
@@ -87,10 +99,19 @@ function App() {
 
   const handleChat = async () => {
     if (!question.trim()) return;
-    if (!result || !summary) return;
+    if (!result || !summary) {
+       alert("Please analyze an image first.");
+       return;
+    }
 
     const userQuestion = question;
     setQuestion("");
+
+    const newHistory = [
+      ...chatHistory,
+      { role: "user", text: userQuestion },
+    ];
+    setChatHistory(newHistory);
 
     try {
       const res = await fetch("http://127.0.0.1:8000/chat", {
@@ -111,245 +132,167 @@ function App() {
 
       setChatHistory((prev) => [
         ...prev,
-        { role: "user", text: userQuestion },
         { role: "ai", text: data.answer },
       ]);
-
-      setChatOpen(true);
-
     } catch (error) {
-      alert("Chat error");
+      alert("Chat error or server is down.");
     }
   };
 
   return (
-    <div className="app">
-      <h1>🩺 AI Medical X-Ray Analysis System</h1>
+    <div className="app-container">
+      <header className="app-header">
+        <h1><span className="gradient-text">Medical AI</span> X-Ray Analysis</h1>
+        <p className="subtitle"> Medical image analysis</p>
+      </header>
 
-      <div className="card">
-        <h2>Upload {mode} X-ray</h2>
+      <main className="main-content">
+        <div className="glass-card upload-section">
+          <div className="controls-row">
+            <div className="control-group">
+              <label>Scan Type</label>
+              <div className="radio-group">
+                <label className={`radio-btn ${mode === "Chest" ? "active" : ""}`}>
+                  <input
+                    type="radio"
+                    value="Chest"
+                    checked={mode === "Chest"}
+                    onChange={(e) => setMode(e.target.value)}
+                  />
+                  🫁 Chest
+                </label>
+                <label className={`radio-btn ${mode === "Bone" ? "active" : ""}`}>
+                  <input
+                    type="radio"
+                    value="Bone"
+                    checked={mode === "Bone"}
+                    onChange={(e) => setMode(e.target.value)}
+                  />
+                  🦴 Bone
+                </label>
+              </div>
+            </div>
 
-        {/* X-ray Type */}
-        <div style={{ marginBottom: "20px" }}>
-          <label>
-            <input
-              type="radio"
-              value="Chest"
-              checked={mode === "Chest"}
-              onChange={(e) => setMode(e.target.value)}
-            />
-            Chest
-          </label>
+            <div className="control-group">
+              <label>Language</label>
+              <select
+                className="styled-select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option value="English">English</option>
+                <option value="Marathi">मराठी (Marathi)</option>
+                <option value="Hindi">हिंदी (Hindi)</option>
+              </select>
+            </div>
+          </div>
 
-          <label style={{ marginLeft: "20px" }}>
-            <input
-              type="radio"
-              value="Bone"
-              checked={mode === "Bone"}
-              onChange={(e) => setMode(e.target.value)}
-            />
-            Bone
-          </label>
+          <div className="file-upload-wrapper">
+            <input type="file" id="file-upload" onChange={handleFileChange} accept="image/*" />
+            <label htmlFor="file-upload" className="file-upload-label">
+              <div className="upload-icon">📁</div>
+              <span>{file ? file.name : "Click to select an X-Ray Image"}</span>
+            </label>
+          </div>
+
+          {preview && (
+            <div className="preview-container">
+              <img src={preview} alt="X-ray preview" className="preview-img" />
+            </div>
+          )}
+
+          <button 
+            className={`analyze-btn ${loading ? "loading" : ""}`} 
+            onClick={handleAnalyze}
+            disabled={loading || !file}
+          >
+            {loading ? <span className="spinner">🔄</span> : "✨"} 
+            {loading ? "Analyzing Image..." : "Analyze Image"}
+          </button>
         </div>
 
-        {/* Language */}
-        <div style={{ marginBottom: "20px" }}>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            style={{
-              padding: "10px",
-              borderRadius: "10px",
-              border: "1px solid #ccc",
-              width: "220px",
-            }}
-          >
-            <option value="English">English</option>
-            <option value="Marathi">Marathi</option>
-            <option value="Hindi">Hindi</option>
-          </select>
-        </div>
-
-        {/* Upload */}
-        <input type="file" onChange={handleFileChange} />
-
-        {/* Preview */}
-        {preview && (
-          <div style={{ marginTop: "20px" }}>
-            <img
-              src={preview}
-              alt="preview"
-              style={{
-                width: "260px",
-                borderRadius: "12px",
-                boxShadow: "0 8px 18px rgba(0,0,0,0.08)",
-              }}
-            />
-          </div>
-        )}
-
-        <br />
-        <br />
-
-        {/* Analyze */}
-        <button onClick={handleAnalyze}>
-          {loading ? "Analyzing..." : "Analyze"}
-        </button>
-
-        {/* Result */}
-        {result && (
-          <div className="result">
-            <h3>Analysis Result</h3>
-
-            <p>
-              <strong>Prediction:</strong> {result.prediction}
-            </p>
-
-            <p>
-              <strong>Confidence:</strong>{" "}
-              {(result.confidence * 100).toFixed(2)}%
-            </p>
-          </div>
-        )}
-
-        {/* Summary */}
-        {summary && (
-          <div className="result">
-            <h3>Medical Summary</h3>
-
-            <p style={{ whiteSpace: "pre-line" }}>{summary}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Floating Chat Button */}
-      <button
-        onClick={() => setChatOpen(!chatOpen)}
-        style={{
-          position: "fixed",
-          bottom: "25px",
-          right: "25px",
-          width: "65px",
-          height: "65px",
-          borderRadius: "50%",
-          fontSize: "26px",
-          zIndex: 999,
-        }}
-      >
-        💬
-      </button>
-
-      {/* Chat Popup */}
-      {chatOpen && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "100px",
-            right: "25px",
-            width: "340px",
-            height: "500px",
-            background: "white",
-            borderRadius: "18px",
-            boxShadow: "0 10px 35px rgba(0,0,0,0.18)",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 999,
-            overflow: "hidden",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              background: "#2563eb",
-              color: "white",
-              padding: "15px",
-              fontWeight: "bold",
-              display: "flex",
-              justifyContent: "space-between",
-            }}
-          >
-            <span>🤖 Medical AI Chat</span>
-
-            <span
-              style={{ cursor: "pointer" }}
-              onClick={() => setChatOpen(false)}
-            >
-              ✖
-            </span>
-          </div>
-
-          {/* Messages */}
-          <div
-            style={{
-              flex: 1,
-              padding: "12px",
-              overflowY: "auto",
-              background: "#f9fafb",
-            }}
-          >
-            {chatHistory.length === 0 ? (
-              <p style={{ color: "#666" }}>
-                Ask any question about your report.
-              </p>
-            ) : (
-              chatHistory.map((msg, index) => (
-                <div
-                  key={index}
-                  style={{
-                    marginBottom: "10px",
-                    textAlign:
-                      msg.role === "user" ? "right" : "left",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "inline-block",
-                      padding: "10px 12px",
-                      borderRadius: "12px",
-                      maxWidth: "80%",
-                      background:
-                        msg.role === "user"
-                          ? "#2563eb"
-                          : "#e5e7eb",
-                      color:
-                        msg.role === "user"
-                          ? "white"
-                          : "black",
-                    }}
-                  >
-                    {msg.text}
+        {(result || summary) && (
+          <div className="results-container">
+            {result && (
+              <div className="glass-card result-card bounce-in">
+                <h3>📊 Analysis Result</h3>
+                <div className="result-data">
+                  <div className="data-box">
+                    <span className="data-label">Prediction</span>
+                    <span className="data-value highlight">{result.prediction}</span>
+                  </div>
+                  <div className="data-box">
+                    <span className="data-label">Confidence</span>
+                    <span className="data-value">{(result.confidence * 100).toFixed(2)}%</span>
                   </div>
                 </div>
-              ))
+              </div>
+            )}
+
+            {summary && (
+              <div className="glass-card summary-card fade-in">
+                <h3>📝 Medical Summary</h3>
+                <p className="summary-text">{summary}</p>
+              </div>
             )}
           </div>
+        )}
+      </main>
 
-          {/* Input */}
-          <div
-            style={{
-              padding: "10px",
-              display: "flex",
-              gap: "8px",
-              borderTop: "1px solid #eee",
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Type message..."
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              style={{
-                flex: 1,
-                padding: "10px",
-                borderRadius: "10px",
-                border: "1px solid #ccc",
-              }}
-            />
-
-            <button onClick={handleChat}>Send</button>
-          </div>
-        </div>
+      {/* Floating Chat Button */}
+      {(result && summary) && (
+        <button
+          className={`chat-fab ${chatOpen ? "active" : "pulse"}`}
+          onClick={() => setChatOpen(!chatOpen)}
+          aria-label="Toggle Chat"
+        >
+          {chatOpen ? "✕" : "💬"}
+        </button>
       )}
+
+      {/* Chat Popup */}
+      <div className={`chat-window ${chatOpen ? "open" : ""}`}>
+        <div className="chat-header">
+          <div className="chat-title">
+            <span className="bot-icon">🤖</span> AI Assistant
+          </div>
+          <button className="close-btn" onClick={() => setChatOpen(false)}>✕</button>
+        </div>
+
+        <div className="chat-body">
+          {chatHistory.length === 0 ? (
+            <div className="chat-empty">
+              <p>Hello! I have analyzed your report. Ask me any questions you have.</p>
+            </div>
+          ) : (
+            chatHistory.map((msg, index) => (
+              <div
+                key={index}
+                className={`chat-message-wrapper ${msg.role === "user" ? "user-wrapper" : "ai-wrapper"}`}
+              >
+                <div className={`chat-bubble ${msg.role}`}>
+                  {msg.text}
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        <div className="chat-footer">
+          <input
+            type="text"
+            placeholder="Type your question..."
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleChat()}
+            className="chat-input"
+          />
+          <button className="chat-send-btn" onClick={handleChat}>
+            ➤
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
